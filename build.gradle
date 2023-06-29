@@ -1,0 +1,72 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+    maven {
+        url = uri('https://repo.maven.apache.org/maven2/')
+    }
+}
+
+def properties = new Properties()
+properties.load(new FileInputStream(file('version.properties')))
+def v = properties.getProperty('version')
+
+group = 'cn.idmesh.sdk'
+version = v
+//def artifactId = 'idmesh-java-client-sdk'
+description = 'idmesh-java-client-sdk'
+java.sourceCompatibility = JavaVersion.VERSION_1_8
+
+// 发布到仓库
+apply plugin: 'maven-publish'
+// 推送到 release 仓库
+task pushToReleaseRepo(type: PublishToMavenRepository) {
+    repositories {
+        maven {
+            url 'https://packages.aliyun.com/maven/repository/2115475-release-cc67Xf/'
+            credentials {
+                username = System.getProperty("aliyunRepoUser")
+                password = System.getProperty("aliyunRepoPassword")
+            }
+        }
+    }
+}
+
+// 推送到 snapshot 仓库
+task pushToSnapshotRepo(type: PublishToMavenRepository) {
+    repositories {
+        maven {
+            url 'https://packages.aliyun.com/maven/repository/2115475-snapshot-0T81oS/'
+            credentials {
+                username = System.getProperty("aliyunRepoUser")
+                password = System.getProperty("aliyunRepoPassword")
+            }
+        }
+    }
+}
+
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+
+    implementation 'javax.servlet:javax.servlet-api:4.0.1'
+//    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+    api 'org.apache.commons:commons-lang3:3.12.0'
+    api 'org.bitbucket.b_c:jose4j:0.9.3'
+    api 'org.apache.httpcomponents.client5:httpclient5:5.2.1'
+    api 'org.apache.httpcomponents.client5:httpclient5-fluent:5.2.1'
+    api 'com.google.code.gson:gson:2.9.1'
+}
+
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
