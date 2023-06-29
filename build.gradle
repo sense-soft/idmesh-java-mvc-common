@@ -23,32 +23,36 @@ java.sourceCompatibility = JavaVersion.VERSION_1_8
 
 // 发布到仓库
 apply plugin: 'maven-publish'
-// 推送到 release 仓库
-task pushToReleaseRepo(type: PublishToMavenRepository) {
-    repositories {
-        maven {
-            url 'https://packages.aliyun.com/maven/repository/2115475-release-cc67Xf/'
-            credentials {
-                username = System.getProperty("aliyunRepoUser")
-                password = System.getProperty("aliyunRepoPassword")
+afterEvaluate {
+    publishing {
+        publications {
+            maven(MavenPublication) {
+                from components.java
+                groupId = project.group
+                artifactId = project.name
+                version = project.version
+            }
+        }
+        repositories {
+//            maven {
+//                url 'https://packages.aliyun.com/maven/repository/2115475-release-cc67Xf/'
+//                // 流水线运行时通过-DaliyunRepoUser=xxx -DaliyunRepoPassword=xxx传入
+//                credentials {
+//                    username = System.getProperty("aliyunRepoUser")
+//                    password = System.getProperty("aliyunRepoPassword")
+//                }
+//            }
+            maven {
+                url 'https://packages.aliyun.com/maven/repository/2115475-snapshot-0T81oS/'
+                // 流水线运行时通过-DaliyunRepoUser=xxx -DaliyunRepoPassword=xxx传入
+                credentials {
+                    username = System.getProperty("aliyunRepoUser")
+                    password = System.getProperty("aliyunRepoPassword")
+                }
             }
         }
     }
 }
-
-// 推送到 snapshot 仓库
-task pushToSnapshotRepo(type: PublishToMavenRepository) {
-    repositories {
-        maven {
-            url 'https://packages.aliyun.com/maven/repository/2115475-snapshot-0T81oS/'
-            credentials {
-                username = System.getProperty("aliyunRepoUser")
-                password = System.getProperty("aliyunRepoPassword")
-            }
-        }
-    }
-}
-
 
 dependencies {
     testImplementation 'junit:junit:4.13.2'
