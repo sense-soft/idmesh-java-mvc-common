@@ -1,7 +1,24 @@
 plugins {
     id 'java-library'
     id 'maven-publish'
+    id 'signing'
 }
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+
+def properties = new Properties()
+properties.load(new FileInputStream(file('version.properties')))
+
+group = 'cn.idmesh.sdk'
+version = properties.getProperty('version')
+description = 'idmesh-java-mvc-common'
+java.sourceCompatibility = JavaVersion.VERSION_1_8
 
 repositories {
     mavenCentral()
@@ -11,54 +28,11 @@ repositories {
     }
 }
 
-def properties = new Properties()
-properties.load(new FileInputStream(file('version.properties')))
-def v = properties.getProperty('version')
-
-group = 'cn.idmesh.sdk'
-version = v
-//def artifactId = 'idmesh-java-client-sdk'
-description = 'idmesh-java-client-sdk'
-java.sourceCompatibility = JavaVersion.VERSION_1_8
-
-// 发布到仓库
-apply plugin: 'maven-publish'
-afterEvaluate {
-    publishing {
-        publications {
-            maven(MavenPublication) {
-                from components.java
-                groupId = project.group
-                artifactId = project.name
-                version = project.version
-            }
-        }
-        repositories {
-//            maven {
-//                url 'https://packages.aliyun.com/maven/repository/2115475-release-cc67Xf/'
-//                // 流水线运行时通过-DaliyunRepoUser=xxx -DaliyunRepoPassword=xxx传入
-//                credentials {
-//                    username = System.getProperty("aliyunRepoUser")
-//                    password = System.getProperty("aliyunRepoPassword")
-//                }
-//            }
-            maven {
-                url 'https://packages.aliyun.com/maven/repository/2115475-snapshot-0T81oS/'
-                // 流水线运行时通过-DaliyunRepoUser=xxx -DaliyunRepoPassword=xxx传入
-                credentials {
-                    username = System.getProperty("aliyunRepoUser")
-                    password = System.getProperty("aliyunRepoPassword")
-                }
-            }
-        }
-    }
-}
 
 dependencies {
     testImplementation 'junit:junit:4.13.2'
 
     implementation 'javax.servlet:javax.servlet-api:4.0.1'
-//    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
     api 'org.apache.commons:commons-lang3:3.12.0'
     api 'org.bitbucket.b_c:jose4j:0.9.3'
     api 'org.apache.httpcomponents.client5:httpclient5:5.2.1'
@@ -66,11 +40,82 @@ dependencies {
     api 'com.google.code.gson:gson:2.9.1'
 }
 
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
 
-java {
-    withSourcesJar()
-    withJavadocJar()
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(8)
+            groupId = project.getGroup()
+            artifactId = project.getName()
+            version = project.getVersion()
+
+            versionMapping {
+                usage('java-api') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+                usage('java-runtime') {
+                    fromResolutionResult()
+                }
+            }
+            pom {
+                name = project.getName()
+                description = project.getDescription()
+                url = ''
+                properties = [
+                        'project.build.sourceEncoding': 'UTF-8',
+                        'project.reporting.outputEncoding': 'UTF-8',
+                        'maven.compiler.source': '1.8',
+                        'maven.compiler.target': '1.8'
+                ]
+                developers {
+                    developer {
+                        id = 'Liur'
+                        name = "Liur"
+                        email = "liuyafei.cf@163.com"
+                    }
+                }
+                scm {
+                    connection = 'scm:git:git@github.com:sense-soft/idmesh-java-mvc-common.git'
+                    developerConnection = 'scm:git:ssh://github.com:sense-soft/idmesh-java-mvc-common.git'
+                    url = 'https://github.com/sense-soft/idmesh-java-mvc-common'
+                }
+            }
+        }
     }
+
+    repositories {
+        maven {
+            name = 'idmesh-java-mvc-common'
+            def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+            def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+            credentials {
+                // 这里就是之前在issues.sonatype.org注册的账号
+                username = "${MAVEN_USER}"
+                password = "${MAVEN_PWD}"
+            }
+        }
+    }
+}
+
+signing {
+    def signingKey = base64Decode(findProperty("base64EncodedAsciiArmoredSigningKey"))
+    def signingPassword = findProperty("signingPassword")
+    def signingKeyId = findProperty("signingKeyId")
+    useInMemoryPgpKeys(signingKeyId, signingKey, signingPassword)
+    sign publishing.publications.mavenJava
+}
+
+static def base64Decode(encodedString){
+    if(encodedString != null) {
+        byte[] decoded = encodedString.decodeBase64()
+        String decode = new String(decoded)
+        return decode
+    }
+    return null;
+}
+
+javadoc {
+    options.encoding = "UTF-8"
+    failOnError = false
 }
