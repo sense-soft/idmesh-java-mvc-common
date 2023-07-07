@@ -91,8 +91,8 @@ publishing {
             url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
             credentials {
                 // 这里就是之前在issues.sonatype.org注册的账号
-                username = "${MAVEN_USER}"
-                password = "${MAVEN_PWD}"
+                username = System.getenv("MAVEN_USER")
+                password = System.getenv("MAVEN_PWD")
             }
         }
     }
