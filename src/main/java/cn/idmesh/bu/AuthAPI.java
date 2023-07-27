@@ -1,6 +1,7 @@
 package cn.idmesh.bu;
 
 
+import cn.idmesh.Util;
 import cn.idmesh.http.NamePassword;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
@@ -14,8 +15,6 @@ import org.apache.commons.lang3.Validate;
 import org.apache.hc.client5.http.fluent.Form;
 import org.apache.hc.client5.http.fluent.Request;
 import org.apache.hc.client5.http.impl.classic.BasicHttpClientResponseHandler;
-import org.apache.hc.core5.http.*;
-import org.apache.hc.core5.net.URIBuilder;
 
 import java.io.IOException;
 import java.net.URI;
@@ -27,8 +26,15 @@ public class AuthAPI {
     private static final String KEY_CLIENT_SECRET = "client_secret";
     private static final String KEY_GRANT_TYPE = "grant_type";
     private static final String PATH_PROTOCOL = "protocol";
+    private static final String KEY_REFRESH_TOKEN = "refresh_token";
+    private static final String PATH_OAUTH = "oauth";
+    private static final String PATH_OAUTH2 = "oauth2";
     private static final String PATH_OIDC = "oidc";
     private static final String PATH_TOKEN = "token";
+
+    private static final String KEY_AUDIENCE = "audience";
+
+    private static final String PATH_USERINFO = "userinfo";
 
     private final String clientId;
     private final String clientSecret;
@@ -69,58 +75,108 @@ public class AuthAPI {
 
     public AuthorizeUrlBuilder authorizeUrl(String redirectUri) {
         Validate.notNull(redirectUri, "redirect uri should not be null");
-
         return AuthorizeUrlBuilder.newInstance(baseUrl, clientId, redirectUri);
     }
 
-    public UserInfo userInfo(String accessToken) { // TODO
-        return null;
+    public UserInfo userInfo(String accessToken) throws IOException {
+        // 获取用户信息
+        String url = Util.urlBuilder(baseUrl, PATH_PROTOCOL, PATH_OIDC, PATH_USERINFO);
+        // 构建请求
+        Request request = Request.get(url);
+        request.addHeader("Authorization", "Bearer " + accessToken);
+
+        String result = request.execute().handleResponse(new BasicHttpClientResponseHandler());
+        Gson gson = new GsonBuilder().setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES).create();
+        return gson.fromJson(result, UserInfo.class);
     }
 
-    public Object resetPassword(String email, String connection) { // TODO
-        Validate.notNull(email, "email should not be null");
-        Validate.notNull(connection, "connection should not be null");
+    public TokenHolder login(String emailOrUsername, char[] password, String realm) throws IOException {
+        Validate.notNull(emailOrUsername, "email or username should not be null");
+        Validate.notNull(password, "password should not be null");
+        Validate.notNull(realm, "realm should not be null");
 
-        String url = baseUrl + "/dbconnections/change_password"; // TODO
-
-        return null;
+        String url =Util.urlBuilder(baseUrl, PATH_PROTOCOL, PATH_OAUTH2, PATH_TOKEN);
+        Request request = Request.post(url);
+        Form form = Form.form()
+                .add(KEY_CLIENT_ID, clientId)
+                .add(KEY_CLIENT_SECRET, clientSecret)
+                .add(KEY_GRANT_TYPE, "password")
+                .add("username", emailOrUsername)
+                .add("password", new String(password))
+                .add("realm", realm)
+                .add("scope", "all");
+        request.bodyForm(form.build(), StandardCharsets.UTF_8);
+        String result = request
+                .execute()
+                .handleResponse(new BasicHttpClientResponseHandler());
+        return parseBody(result, TokenHolder.class);
     }
 
 
-    public Object login(String emailOrUsername, char[] password, String realm) {
-        return null;
+    /**
+     * M2M授权，直接请求token，使用clientId 直接申请token
+     * @param audience 申请的token的audience
+     * @return TokenHolder
+     * @throws IOException IOException
+     */
+    public TokenHolder requestToken(String audience) throws IOException {
+        Validate.notNull(audience, "audience should not be null");
+
+        String url = Util.urlBuilder(baseUrl, PATH_PROTOCOL, PATH_OAUTH2, PATH_TOKEN);
+        // 构建请求
+        Request request = Request.post(url);
+        Form form = Form.form()
+                .add(KEY_CLIENT_ID, clientId)
+                .add(KEY_CLIENT_SECRET, clientSecret)
+                .add(KEY_GRANT_TYPE, "client_credentials")
+                .add(KEY_AUDIENCE, audience);
+        request.bodyForm(form.build(), StandardCharsets.UTF_8);
+        String result = request
+                .execute()
+                .handleResponse(new BasicHttpClientResponseHandler());
+        return parseBody(result, TokenHolder.class);
     }
 
-
-    public Object requestToken(String audience) {
-        // TODO
-        return null;
+    public TokenHolder revokeToken(String refreshToken) throws IOException {
+        Validate.notNull(refreshToken, "refresh token should not be null");
+        String url = Util.urlBuilder(baseUrl, PATH_PROTOCOL, PATH_OAUTH2, PATH_TOKEN);
+        // 构建请求
+        Request request = Request.post(url);
+        Form form = Form.form()
+                .add(KEY_CLIENT_ID, clientId)
+                .add(KEY_CLIENT_SECRET, clientSecret)
+                .add(KEY_GRANT_TYPE, "refresh_token")
+                .add(KEY_REFRESH_TOKEN, refreshToken);
+        request.bodyForm(form.build(), StandardCharsets.UTF_8);
+        String result = request
+                .execute()
+                .handleResponse(new BasicHttpClientResponseHandler());
+        return parseBody(result, TokenHolder.class);
     }
 
-    public Object revokeToken(String refreshToken) { // TODO 封装响应对象
-        return null;
-    }
+    public TokenHolder renewAuth(String refreshToken) throws IOException {
+        Validate.notNull(refreshToken, "refresh token should not be null");
 
-    public Object renewAuth(String refreshToken) {
-        // TODO 使用refreshToken刷新token
-        return null;
+        String url = Util.urlBuilder(baseUrl, PATH_PROTOCOL, PATH_OAUTH2, PATH_TOKEN);
+
+        Request request = Request.post(url);
+        Form form  = Form.form()
+                .add(KEY_CLIENT_ID, clientId)
+                .add(KEY_CLIENT_SECRET, clientSecret)
+                .add(KEY_GRANT_TYPE, "refresh_token")
+                .add(KEY_REFRESH_TOKEN, refreshToken);
+
+        request.bodyForm(form.build(), StandardCharsets.UTF_8);
+
+        String result = request
+                .execute()
+                .handleResponse(new BasicHttpClientResponseHandler());
+        return parseBody(result, TokenHolder.class);
     }
 
     public TokenHolder exchangeCode(String code, String redirectUri, ClientOption options) throws IOException {
-        String url = null;
-        try {
-            url = new URIBuilder(baseUrl)
-                    .appendPathSegments(PATH_PROTOCOL)
-                    .appendPathSegments(PATH_OIDC)
-                    .appendPathSegments(PATH_TOKEN)
-                    .build()
-                    .toString();
-        } catch (URISyntaxException e) {
-            // not possible
-            throw new RuntimeException(e);
-        }
-
-        // 使用fluent-hc发送请求
+        String url = Util.urlBuilder(baseUrl, PATH_PROTOCOL, PATH_OIDC, PATH_TOKEN);
+        // 发送请求
         Request request = Request.post(url);
 
         Form formBuilder = Form.form();
@@ -129,21 +185,25 @@ public class AuthAPI {
         } else if (TokenValidationType.CLIENT_SECRET_POST.equals(options.getTokenValidationType())) {
             formBuilder = formBuilder.add(KEY_CLIENT_ID, clientId).add(KEY_CLIENT_SECRET, clientSecret);
         }
-
         formBuilder = formBuilder
                 .add(KEY_GRANT_TYPE, "authorization_code")
                 .add("code", code)
                 .add("redirect_uri", redirectUri);
 
         request.bodyForm(formBuilder.build(), StandardCharsets.UTF_8);
-
-        String result = request.execute().handleResponse(new BasicHttpClientResponseHandler());
-        Gson gson = new GsonBuilder().setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES).create();
-        return gson.fromJson(result, TokenHolder.class);
+        String result = request
+                .execute()
+                .handleResponse(new BasicHttpClientResponseHandler());
+        return parseBody(result, TokenHolder.class);
     }
 
     public void setTelemetry(Telemetry telemetry) {
         this.telemetry = telemetry;
+    }
+
+    public <T> T parseBody(String body, Class<T> clazz) {
+        Gson gson = new GsonBuilder().setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES).create();
+        return gson.fromJson(body, clazz);
     }
 
     public Telemetry getTelemetry() {

@@ -9,18 +9,18 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class AuthorizeUrlBuilder {
-
-    private URIBuilder uriBuilder;
-
-    private Map<String, String> params = new HashMap<>();
-
+    private final URIBuilder uriBuilder;
+    private final Map<String, String> params = new HashMap<>();
 
     static AuthorizeUrlBuilder newInstance(URI bashUrl, String clientId, String redirectUri) {
         return new AuthorizeUrlBuilder(bashUrl, clientId, redirectUri);
     }
 
     public AuthorizeUrlBuilder(URI bashUrl, String clientId, String redirectUri) {
-        this.uriBuilder = new URIBuilder(bashUrl).setPathSegments("protocol", "oidc","authorize").addParameter("client_id", clientId).addParameter("redirect_uri", redirectUri);
+        this.uriBuilder = new URIBuilder(bashUrl)
+                .setPathSegments("protocol", "oidc","authorize")
+                .addParameter("client_id", clientId)
+                .addParameter("redirect_uri", redirectUri);
     }
 
     public AuthorizeUrlBuilder withOrganization(String organization) {
@@ -58,18 +58,18 @@ public class AuthorizeUrlBuilder {
         return this;
     }
 
-    public String build() {
-        try {
-            this.params.forEach((key, value) -> this.uriBuilder.addParameter(key, value));
-
-            return this.uriBuilder.build().toString();
-        } catch (URISyntaxException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     public AuthorizeUrlBuilder withResponseType(String responseType) {
         this.params.put("response_type", responseType);
         return this;
+    }
+
+    public String build() {
+        try {
+            this.params.forEach((key, value) -> this.uriBuilder.addParameter(key, value));
+            return this.uriBuilder.build().toString();
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
